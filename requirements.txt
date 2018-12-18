@@ -3,3 +3,5 @@ pandas
 scipy
 argparse
 sklearn
+numba
+keras

@@ -1,8 +1,9 @@
-import argparse
 import multiprocessing
 import numpy as np
 import pandas as pd
 from scipy.optimize import least_squares
+import numba
+from util import get_fe_argparser
 
 
 NUM_PARTITIONS = 500
@@ -12,11 +13,13 @@ FEATURES = ["A", "B", "t0", "tfall", "trise", "cc", "fit_error", "status", "t0_s
 
 # bazin, errorfunc and fit_scipy are developed using:
 # https://github.com/COINtoolbox/ActSNClass/blob/master/examples/1_fit_LC/fit_lc_parametric.py
+@numba.jit(nopython=True)
 def bazin(time, low_passband, A, B, t0, tfall, trise, cc):
     X = np.exp(-(time - t0) / tfall) / (1 + np.exp((time - t0) / trise))
     return (A * X + B) * (1 - cc * low_passband)
 
 
+@numba.jit(nopython=True)
 def errfunc(params, time, low_passband, flux, weights):
     return abs(flux - bazin(time, low_passband, *params)) * weights
 
@@ -76,11 +79,7 @@ def parallelize(meta_df, df):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Fit bazin function and generate features.")
-    parser.add_argument("meta_path", action="store", default="input/test_set_metadata.csv")
-    parser.add_argument("light_curve_path", action="store", default="input/test_set.csv")
-    parser.add_argument("output_path", action="store", default="features/bazin_test.csv")
-    args = parser.parse_args()
+    args = get_fe_argparser("Fit bazin function and generate features.")
 
     meta_df = pd.read_csv(args.meta_path)
     lc_df = pd.read_csv(args.light_curve_path)
