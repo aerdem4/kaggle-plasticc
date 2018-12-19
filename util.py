@@ -38,11 +38,15 @@ def prepare_data():
     train_df = pd.read_csv("input/training_set_metadata.csv")
     test_df = pd.read_csv("input/test_set_metadata.csv")
 
-    for feature_file in ["bazin", "hostgal_specz", "features_v1", "features_v2"]:
+    for feature_file in ["bazin", "features_v1", "features_v2"]:
         train_df = train_df.merge(pd.read_csv("features/train_{}.csv".format(feature_file)),
                                   on="object_id", how="left")
         test_df = test_df.merge(pd.read_csv("features/test_{}.csv".format(feature_file)),
                                 on="object_id", how="left")
+
+    hostgal_calc_df = pd.read_csv("features/hostgal_calc.csv")
+    train_df = train_df.merge(hostgal_calc_df, on="object_id", how="left")
+    test_df = test_df.merge(hostgal_calc_df, on="object_id", how="left")
 
     train_gal = train_df[train_df["hostgal_photoz"] == 0].copy()
     train_exgal = train_df[train_df["hostgal_photoz"] > 0].copy()

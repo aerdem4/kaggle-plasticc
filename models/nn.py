@@ -12,7 +12,7 @@ NUM_FOLDS = 5
 NUM_ITERS = 2
 
 
-def evaluate(train_gal, train_exgal, oof_preds_gal, oof_preds_exgal):
+def evaluate(train_gal, train_exgal, oof_preds_gal, oof_preds_exgal, ohe_gal, ohe_exgal):
     gal_loss = log_loss(ohe_gal.transform(train_gal["target"].values.reshape(-1, 1)),
                         np.clip(np.round(oof_preds_gal, 4), 1e-4, None),
                         sample_weight=train_gal["sample_weight"])
@@ -102,9 +102,7 @@ def train_and_predict(train_df, test_df, features, ohe):
     return oof_preds, test_preds
 
 
-if __name__ == "__main__":
-    train_gal, train_exgal, test_gal, test_exgal, gal_class_list, exgal_class_list, test_df = prepare_data()
-
+def get_nn_predictions(train_gal, train_exgal, test_gal, test_exgal):
     bazin = ["A", "B", "tfall", "trise", "fit_error"]
     f_flux = ["flux_sn" + str(i) for i in range(6)]
     f_skew = ["skew" + str(i) for i in range(6)]
@@ -112,17 +110,21 @@ if __name__ == "__main__":
     f_d = ["d" + str(i) for i in range(6)]
     f_dd = ["dd" + str(i) for i in range(6)]
 
+    # use stacking features if they exist
+    stack_features_gal = [col for col in train_gal.columns if col.startswith("lgb_pred")]
+    stack_features_exgal = [col for col in train_exgal.columns if col.startswith("lgb_pred")]
+
     features_gal = ["mwebv", "flux", "flux_err", "fake_flux", "first", "last", "peak", "deep",
                     "total_detected", "ratio_detected", "observation_count",
                     "std_flux", "min_flux", "max_flux", "delta_flux", "detected_flux",
-                    "time_diff_pos", "time_diff_neg"] + f_flux + f_f + f_d + f_dd + f_skew + bazin
+                    "time_diff_pos", "time_diff_neg"] + f_flux + f_f + f_d + f_dd + f_skew + bazin + stack_features_gal
     features_gal = features_gal + ["time_diff_full", "detected_period"] + ["raw_flux" + str(i) for i in range(6)]
 
     features_exgal = ["hostgal_calc", "hostgal_photoz", "hostgal_photoz_err", "mwebv",
                       "fake_flux", "first", "last", "peak", "deep",
                       "total_detected", "ratio_detected", "observation_count",
                       "std_flux", "max_flux", "detected_flux",
-                      "time_diff_pos", "time_diff_neg"] + f_flux + f_d + bazin
+                      "time_diff_pos", "time_diff_neg"] + f_flux + f_d + bazin + stack_features_exgal
     features_exgal = features_exgal + ["time_diff_full", "detected_period"] + ["raw_flux" + str(i) for i in range(6)]
 
     ohe_gal = OneHotEncoder(sparse=False)
@@ -134,6 +136,16 @@ if __name__ == "__main__":
     oof_preds_gal, test_preds_gal = train_and_predict(train_gal, test_gal, features_gal, ohe_gal)
     print("EXTRAGALACTIC MODEL")
     oof_preds_exgal, test_preds_exgal = train_and_predict(train_exgal, test_exgal, features_exgal, ohe_exgal)
+
+    evaluate(train_gal, train_exgal, oof_preds_gal, oof_preds_exgal, ohe_gal, ohe_exgal)
+
+    return oof_preds_gal, oof_preds_exgal, test_preds_gal, test_preds_exgal
+
+
+if __name__ == "__main__":
+    train_gal, train_exgal, test_gal, test_exgal, gal_class_list, exgal_class_list, test_df = prepare_data()
+    oof_preds_gal, oof_preds_exgal, test_preds_gal, test_preds_exgal = get_nn_predictions(train_gal, train_exgal,
+                                                                                          test_gal, test_exgal)
 
     test_preds_gal = get_meta_preds(train_gal, oof_preds_gal, test_preds_gal, 0.2)
     test_preds_exgal = get_meta_preds(train_exgal, oof_preds_exgal, test_preds_exgal, 0.2)

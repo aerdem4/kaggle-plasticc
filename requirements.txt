@@ -5,3 +5,4 @@ argparse
 sklearn
 numba
 keras
+lightgbm
